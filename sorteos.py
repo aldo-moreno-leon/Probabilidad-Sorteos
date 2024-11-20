@@ -5,13 +5,15 @@ from collections import Counter
 def leer_archivo(nombre_archivo):
     with open(nombre_archivo, 'r') as archivo:
         numeros = archivo.read().splitlines()
+        # Convertimos los números a enteros
+        numeros = [int(numero) for numero in numeros]
         return numeros
 
 def generar_numeros(numeros, cantidad):
     generados = []
     while len(generados) < cantidad:
-        num = random.randint(1, 60000)
-        if num not in numeros:
+        num = random.randint(0, 60000)
+        if num not in numeros and num not in generados:  # Aseguramos que no este en 'generados' tampoco
             generados.append(num)
     return generados
 
