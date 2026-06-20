@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de números — Lotería Nacional</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c1813;
+    --surface: #122119;
+    --surface-2: #18291f;
+    --border: #25392c;
+    --border-soft: #1c2c22;
+    --text: #ECE6D6;
+    --text-muted: #8a9a8d;
+    --text-dim: #5c6b60;
+    --empty: #1b2920;
+    --green: #3fa66b;
+    --green-bright: #5bcf8a;
+    --gold: #d9ad57;
+    --gold-bright: #f0c878;
+    --line-gold: #b5904a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(217,173,87,0.07), transparent),
+      repeating-linear-gradient(transparent, transparent 27px, rgba(255,255,255,0.012) 28px);
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 80px; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--gold-bright); margin: 0 0 18px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before { content: ''; width: 18px; height: 1px; background: var(--line-gold); display: inline-block; }
+
+  h1 {
+    font-family: 'Fraunces', serif; font-optical-sizing: auto; font-weight: 600;
+    font-size: clamp(34px, 5.4vw, 58px); line-height: 1.05; letter-spacing: -0.01em;
+    margin: 0 0 18px; max-width: 760px;
+  }
+  h1 em { font-style: italic; font-weight: 500; color: var(--gold-bright); }
+
+  .lede { font-size: 16px; line-height: 1.6; color: var(--text-muted); max-width: 580px; margin: 0 0 36px; }
+
+  /* ---------- sorteo selector (tabs) ---------- */
+  .sorteo-tabs {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px;
+  }
+  .sorteo-tab {
+    flex: 1 1 220px;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+  }
+  .sorteo-tab:hover { border-color: var(--line-gold); }
+  .sorteo-tab.active {
+    border-color: var(--gold-bright);
+    background: linear-gradient(180deg, rgba(217,173,87,0.1), rgba(217,173,87,0.02));
+  }
+  .sorteo-tab .st-name {
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 16px; display: block; margin-bottom: 3px;
+  }
+  .sorteo-tab.active .st-name { color: var(--gold-bright); }
+  .sorteo-tab .st-meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-muted);
+    display: block;
+  }
+
+  /* ---------- data status bar ---------- */
+  .data-bar {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 18px; margin-bottom: 36px; font-size: 13px;
+  }
+  #data-status { color: var(--text-muted); display: flex; align-items: center; gap: 9px; }
+  #data-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+  #data-status.ok .dot { background: var(--green-bright); }
+  #data-status.warn .dot { background: var(--gold-bright); }
+  #data-status.loading .dot { background: var(--gold-bright); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  .reload-btn {
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 500; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .reload-btn:hover { border-color: var(--line-gold); color: var(--gold-bright); }
+
+  .stats {
+    display: flex; flex-wrap: wrap; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .stat {
+    flex: 1 1 160px; padding: 22px 16px; border-right: 1px solid var(--border-soft);
+    text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .stat:last-child { border-right: none; }
+  .stat .num { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; color: var(--text); line-height: 1.1; }
+  .stat .num .accent { color: var(--gold-bright); }
+  .stat .label { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; max-width: 180px; }
+
+  /* ---------- suggestions panel ---------- */
+  .suggest-panel {
+    background: linear-gradient(180deg, rgba(217,173,87,0.06), transparent 70%);
+    border: 1px solid var(--border); border-radius: 14px; padding: 26px; margin-bottom: 30px;
+  }
+  .suggest-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .suggest-head h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 21px; margin: 0; }
+  .suggest-head .tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--gold-bright);
+    border: 1px solid rgba(217,173,87,0.4); border-radius: 20px; padding: 3px 10px;
+  }
+  .suggest-sub { font-size: 13.5px; color: var(--text-muted); line-height: 1.55; margin: 0 0 20px; max-width: 620px; }
+  .suggest-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  .qty-control { display: flex; align-items: center; gap: 10px; }
+  .qty-control label { font-size: 13px; color: var(--text-muted); }
+  .qty-control input[type=number] {
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; width: 72px; padding: 8px 10px;
+    border-radius: 7px; outline: none; text-align: center;
+  }
+  .qty-control input[type=number]:focus { border-color: var(--line-gold); }
+  .gen-btn {
+    background: var(--line-gold); color: #1a1306; border: none; border-radius: 8px;
+    font-size: 13.5px; font-weight: 600; padding: 10px 22px; cursor: pointer;
+    font-family: 'Inter', sans-serif; letter-spacing: 0.01em;
+  }
+  .gen-btn:hover { background: var(--gold-bright); }
+  .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .suggest-results { display: flex; flex-wrap: wrap; gap: 10px; min-height: 4px; }
+  .suggest-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600;
+    background: var(--surface-2); border: 1px solid var(--green); color: var(--green-bright);
+    padding: 10px 16px; border-radius: 9px; letter-spacing: 0.05em;
+    animation: pop 0.3s ease-out backwards;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.9); } }
+  .suggest-empty { font-size: 13px; color: var(--text-dim); }
+
+  /* ---------- map panel ---------- */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .panel-head {
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between;
+    padding: 22px 26px; border-bottom: 1px solid var(--border);
+  }
+  .panel-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 19px; margin: 0; display: flex; align-items: baseline; gap: 10px; }
+  .panel-title span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); font-weight: 400; }
+  .controls { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .legend { display: flex; align-items: center; gap: 14px; font-size: 12.5px; color: var(--text-muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+  .swatch.empty { background: var(--empty); border: 1px solid var(--border); }
+  .swatch.one { background: var(--green); }
+  .swatch.two { background: var(--gold); box-shadow: 0 0 6px rgba(240,200,120,0.5); }
+
+  .search-box {
+    display: flex; align-items: center; gap: 8px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px;
+  }
+  .search-box input {
+    background: none; border: none; outline: none; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; width: 90px; letter-spacing: 0.04em;
+  }
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-box button {
+    background: var(--line-gold); color: #1a1306; border: none; border-radius: 5px;
+    font-size: 11px; font-weight: 600; padding: 5px 10px; cursor: pointer;
+    font-family: 'Inter', sans-serif; letter-spacing: 0.02em;
+  }
+  .search-box button:hover { background: var(--gold-bright); }
+  #search-result { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); min-height: 16px; padding: 0 26px; }
+  #search-result.hit { color: var(--gold-bright); }
+  #search-result.miss { color: var(--text-dim); }
+
+  .grid-scroll { overflow-x: auto; overflow-y: hidden; padding: 18px 26px 26px; position: relative; }
+  .grid-scroll::-webkit-scrollbar { height: 10px; }
+  .grid-scroll::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 10px; }
+  .grid-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  .grid-scroll::-webkit-scrollbar-thumb:hover { background: var(--line-gold); }
+  .grid-inner { position: relative; display: block; overflow: hidden; }
+
+  .col-ticks { display: flex; height: 18px; margin-bottom: 6px; position: relative; }
+  .tick { position: absolute; top: 0; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+  .tick::after { content: ''; position: absolute; left: 0; top: 14px; width: 1px; height: 4px; background: var(--border); }
+
+  canvas#grid { display: block; cursor: crosshair; border-radius: 4px; }
+
+  #highlight-box {
+    position: absolute; border: 2px solid var(--gold-bright); border-radius: 3px; pointer-events: none; opacity: 0;
+    box-shadow: 0 0 0 3px rgba(240,200,120,0.25), 0 0 14px rgba(240,200,120,0.6);
+  }
+  #highlight-box.show { animation: pulse 1.6s ease-out 2; }
+  @keyframes pulse { 0% { opacity: 1; transform: scale(1.6); } 100% { opacity: 0.85; transform: scale(1); } }
+
+  #tooltip {
+    position: fixed; pointer-events: none; background: #0a140f; border: 1px solid var(--line-gold);
+    border-radius: 7px; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text); z-index: 50; opacity: 0; transition: opacity 0.08s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45); white-space: nowrap;
+  }
+  #tooltip .n { font-size: 15px; font-weight: 600; color: var(--gold-bright); }
+  #tooltip .f { color: var(--text-muted); margin-top: 2px; display: block; font-size: 11px; }
+  #tooltip.show { opacity: 1; }
+
+  .hint { font-size: 12px; color: var(--text-dim); padding: 0 26px 20px; line-height: 1.6; }
+
+  .doubles-strip { margin-top: 28px; padding: 22px 26px; border-top: 1px solid var(--border); }
+  .doubles-strip h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; margin: 0 0 12px; color: var(--text); }
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(217,173,87,0.1);
+    border: 1px solid rgba(217,173,87,0.35); color: var(--gold-bright); padding: 5px 10px; border-radius: 6px;
+  }
+
+  footer {
+    margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border-soft);
+    font-size: 12.5px; color: var(--text-dim); line-height: 1.7; max-width: 680px;
+  }
+  footer strong { color: var(--text-muted); font-weight: 600; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 36px 16px 60px; }
+    .stat { flex: 1 1 45%; }
+    .panel-head { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Probabilidad de sorteos — Lotería Nacional</p>
+  <h1>Un mapa de <em>todo lo que ya salió.</em></h1>
+  <p class="lede">Cada celda es un número de billete. El color marca si ya fue número ganador en algún sorteo histórico y cuántas veces. Elige el tipo de sorteo para cargar su historial.</p>
+
+  <div class="sorteo-tabs" id="sorteo-tabs"></div>
+
+  <div class="data-bar">
+    <div id="data-status" class="loading"><span class="dot"></span><span id="data-status-text">Cargando…</span></div>
+    <button class="reload-btn" id="reload-btn">Volver a cargar</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="num" id="stat-total">—</span><span class="label">sorteos analizados</span></div>
+    <div class="stat"><span class="num" id="stat-unicos">—</span><span class="label">números distintos que han salido</span></div>
+    <div class="stat"><span class="num"><span class="accent" id="stat-dobles">—</span></span><span class="label">números repetidos (2 o más veces)</span></div>
+    <div class="stat"><span class="num" id="stat-rango">—</span><span class="label">rango total de billetes</span></div>
+  </div>
+
+  <!-- Suggestions -->
+  <div class="suggest-panel">
+    <div class="suggest-head">
+      <h2>Sugerencia de números</h2>
+      <span class="tag">números fríos</span>
+    </div>
+    <p class="suggest-sub">Elige al azar entre los números que <strong>nunca</strong> han salido en este historial, excluyendo los que ya ganaron dos o más veces. Es una sugerencia basada en frecuencia histórica, no una predicción: cada sorteo es independiente y todos los números tienen la misma probabilidad real de salir.</p>
+    <div class="suggest-controls">
+      <div class="qty-control">
+        <label for="qty-input">¿Cuántos números?</label>
+        <input type="number" id="qty-input" min="1" max="100" value="6">
+      </div>
+      <button class="gen-btn" id="gen-btn">Generar sugerencia</button>
+    </div>
+    <div class="suggest-results" id="suggest-results">
+      <span class="suggest-empty">Pulsa «Generar sugerencia» para obtener números.</span>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="panel">
+    <div class="panel-head">
+      <h3 class="panel-title">Mapa de números <span id="panel-subtitle">cargando…</span></h3>
+      <div class="controls">
+        <div class="legend">
+          <div class="legend-item"><span class="swatch empty"></span> nunca ha salido</div>
+          <div class="legend-item"><span class="swatch one"></span> salió 1 vez</div>
+          <div class="legend-item"><span class="swatch two"></span> repetido</div>
+        </div>
+        <div class="search-box">
+          <input id="search-input" type="text" placeholder="buscar nº" maxlength="6" inputmode="numeric">
+          <button id="search-btn">Buscar</button>
+        </div>
+      </div>
+    </div>
+    <div id="search-result"></div>
+    <div class="grid-scroll" id="grid-scroll">
+      <div class="grid-inner" id="grid-inner">
+        <div class="col-ticks" id="col-ticks"></div>
+        <canvas id="grid"></canvas>
+        <div id="highlight-box"></div>
+      </div>
+    </div>
+    <div class="hint">Cada columna agrupa 50 números consecutivos, de arriba hacia abajo. Desliza horizontalmente (o usa el buscador) para recorrer todo el rango. Pasa el cursor sobre una celda para ver el detalle.</div>
+    <div class="doubles-strip">
+      <h3 id="doubles-title">Números repetidos</h3>
+      <div class="chip-row" id="chip-row"></div>
+    </div>
+  </div>
+
+  <footer>
+    Las listas de números ganadores se cargan en vivo desde GitHub y se actualizan cada vez que agregas un nuevo sorteo al archivo correspondiente. Las celdas vacías son números que, dentro de cada historial, todavía no han salido. <strong>Aviso:</strong> este sitio es un registro estadístico, no una herramienta de predicción. En cada sorteo todos los números tienen exactamente la misma probabilidad de salir, sin importar si salieron antes o no (lo contrario es la llamada «falacia del apostador»). Juega con responsabilidad.
+  </footer>
+
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+const PER_COL = 50;
+const SIZE = 11;
+const GAP = 3;
+const STEP = SIZE + GAP;
+const COLORS = { empty:'#1b2920', one:'#3fa66b', oneHover:'#5bcf8a', two:'#d9ad57', twoHover:'#f0c878' };
+
+// Sorteo definitions
+const SORTEOS = [
+  {
+    id: 'ln',
+    name: 'Lotería Nacional',
+    digits: 5,
+    total: 60000,
+    metaLabel: '60,000 emisiones · 00000–59999',
+    url: 'https://raw.githubusercontent.com/aldo-moreno-leon/Probabilidad-Sorteos/refs/heads/main/numeros-ln.txt'
+  },
+  {
+    id: 'tc',
+    name: 'Tris Clásico',
+    digits: 5,
+    total: 100000,
+    metaLabel: '100,000 emisiones · 00000–99999',
+    url: 'https://raw.githubusercontent.com/aldo-moreno-leon/Probabilidad-Sorteos/refs/heads/main/numeros-tc.txt'
+  },
+  {
+    id: '4d',
+    name: 'Lotería Nacional 4D',
+    digits: 4,
+    total: 10000,
+    metaLabel: '10,000 emisiones · 0000–9999',
+    url: 'https://raw.githubusercontent.com/aldo-moreno-leon/Probabilidad-Sorteos/refs/heads/main/numeros-4d-ln.txt'
+  }
+];
+
+let current = SORTEOS[0];
+let FREQ = {};
+let TOTAL = current.total;
+let COLS = Math.ceil(TOTAL / PER_COL);
+let DIGITS = current.digits;
+
+const canvas = document.getElementById('grid');
+const ctx = canvas.getContext('2d');
+const ticksEl = document.getElementById('col-ticks');
+const gridInner = document.getElementById('grid-inner');
+const tooltip = document.getElementById('tooltip');
+const highlightBox = document.getElementById('highlight-box');
+const scrollEl = document.getElementById('grid-scroll');
+const dataStatus = document.getElementById('data-status');
+const dataStatusText = document.getElementById('data-status-text');
+
+function pad(n) { return String(n).padStart(DIGITS, '0'); }
+function freqOf(num) { return FREQ[num] || 0; }
+function colorFor(f, hover) {
+  if (f >= 2) return hover ? COLORS.twoHover : COLORS.two;
+  if (f === 1) return hover ? COLORS.oneHover : COLORS.one;
+  return COLORS.empty;
+}
+
+function drawCell(col, row, hover) {
+  const num = col * PER_COL + row;
+  if (num >= TOTAL) return;
+  ctx.fillStyle = colorFor(freqOf(num), hover);
+  const x = col * STEP, y = row * STEP;
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, SIZE, SIZE, 2); ctx.fill(); }
+  else { ctx.fillRect(x, y, SIZE, SIZE); }
+}
+
+function drawAll() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let col = 0; col < COLS; col++)
+    for (let row = 0; row < PER_COL; row++) drawCell(col, row, false);
+}
+
+function rebuildTicks() {
+  ticksEl.innerHTML = '';
+  ticksEl.style.width = canvas.width + 'px';
+  const step = Math.max(20, Math.round(COLS / 60 / 5) * 5 || 20);
+  for (let col = 0; col <= COLS; col += step) {
+    const startNum = col * PER_COL;
+    if (startNum > TOTAL - 1) continue;
+    const tick = document.createElement('div');
+    tick.className = 'tick';
+    tick.style.left = (col * STEP) + 'px';
+    tick.textContent = pad(startNum);
+    ticksEl.appendChild(tick);
+  }
+}
+
+function rebuildGrid() {
+  const w = COLS * STEP - GAP;
+  const h = PER_COL * STEP - GAP;
+  // Set both the drawing-buffer size (attributes) AND the rendered CSS size.
+  // Setting only the width attribute can leave the canvas displaying at its
+  // previous (wider) CSS size, which creates the empty scroll area on the right.
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  // Pin both wrappers to the same width so a previously wider sorteo can't
+  // leave a phantom scroll region behind.
+  gridInner.style.width = w + 'px';
+  ticksEl.style.width = w + 'px';
+  drawAll();
+  rebuildTicks();
+}
+
+function updateStats(numsCount) {
+  const entries = Object.entries(FREQ);
+  const dobles = entries.filter(([, v]) => v >= 2);
+  document.getElementById('stat-total').textContent = numsCount.toLocaleString('es-MX');
+  document.getElementById('stat-unicos').textContent = entries.length.toLocaleString('es-MX');
+  document.getElementById('stat-dobles').textContent = dobles.length;
+  document.getElementById('stat-rango').textContent = `${pad(0)}–${pad(TOTAL - 1)}`;
+  document.getElementById('panel-subtitle').textContent = `${COLS.toLocaleString('es-MX')} columnas · 50 números cada una`;
+
+  const titleEl = document.getElementById('doubles-title');
+  const chipRow = document.getElementById('chip-row');
+  chipRow.innerHTML = '';
+  if (dobles.length === 0) {
+    titleEl.textContent = 'Números repetidos';
+    chipRow.innerHTML = '<span style="color:var(--text-dim);font-size:13px;">Todavía ningún número se ha repetido en este historial.</span>';
+  } else {
+    titleEl.textContent = `Números repetidos (${dobles.length})`;
+    dobles.sort((a, b) => Number(a[0]) - Number(b[0]))
+      .forEach(([num, count]) => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = `${pad(Number(num))} ×${count}`;
+        chipRow.appendChild(chip);
+      });
+  }
+}
+
+// Decode raw bytes using the right charset. The 4D file is UTF-16, the others
+// are UTF-8 — reading them all as UTF-8 corrupts the 4D one (null bytes between
+// chars + a leading BOM that swallows the first number). We detect the BOM and
+// decode accordingly so every byte lands in the right place.
+function decodeBytes(buffer) {
+  const bytes = new Uint8Array(buffer);
+  // UTF-16 LE BOM: FF FE
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    return new TextDecoder('utf-16le').decode(buffer);
+  }
+  // UTF-16 BE BOM: FE FF
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    return new TextDecoder('utf-16be').decode(buffer);
+  }
+  // Default: UTF-8 (TextDecoder strips a UTF-8 BOM automatically)
+  return new TextDecoder('utf-8').decode(buffer);
+}
+
+// Keep only clean digit lines.
+function parseNumbers(text) {
+  const cleaned = text.replace(/^\uFEFF/, '').replace(/\u0000/g, '');
+  const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0 && /^\d+$/.test(l));
+  return lines.map(l => parseInt(l, 10)).filter(n => !isNaN(n));
+}
+
+function applyData(text) {
+  const nums = parseNumbers(text);
+  if (nums.length === 0) { setStatus('warn', 'El archivo no contiene números válidos.'); return; }
+  DIGITS = current.digits;
+  TOTAL = current.total;
+  COLS = Math.ceil(TOTAL / PER_COL);
+  FREQ = {};
+  nums.forEach(n => { if (n >= 0 && n < TOTAL) FREQ[n] = (FREQ[n] || 0) + 1; });
+  rebuildGrid();
+  updateStats(nums.length);
+  resetSearchAndScroll();
+  document.getElementById('suggest-results').innerHTML = '<span class="suggest-empty">Pulsa «Generar sugerencia» para obtener números.</span>';
+  setStatus('ok', `${current.name} · ${nums.length.toLocaleString('es-MX')} sorteos cargados`);
+}
+
+// Clear the search field/result/highlight and snap the scroll back to the start,
+// so switching sorteos never leaves the previous state lingering.
+function resetSearchAndScroll() {
+  const inputEl = document.getElementById('search-input');
+  const resEl = document.getElementById('search-result');
+  if (inputEl) inputEl.value = '';
+  if (resEl) { resEl.textContent = ''; resEl.className = ''; }
+  // Move the highlight box back to the origin. Even while invisible it is an
+  // absolutely-positioned child of .grid-inner, so a leftover `left` from a
+  // wider sorteo keeps stretching the scrollable width (the phantom space).
+  highlightBox.classList.remove('show');
+  highlightBox.style.opacity = '0';
+  highlightBox.style.left = '0px';
+  highlightBox.style.top = '0px';
+  highlightBox.style.width = '0px';
+  highlightBox.style.height = '0px';
+  scrollEl.scrollLeft = 0;
+}
+
+function setStatus(kind, text) { dataStatus.className = kind; dataStatusText.textContent = text; }
+
+function loadCurrent() {
+  setStatus('loading', `Cargando ${current.name}…`);
+  // cache-bust so updates to the GitHub file show up immediately
+  const url = current.url + '?t=' + Date.now();
+  fetch(url, { cache: 'no-store' })
+    .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.arrayBuffer(); })
+    .then(buffer => applyData(decodeBytes(buffer)))
+    .catch(err => setStatus('warn', `No se pudo cargar el archivo (${err.message}). Revisa tu conexión y vuelve a intentar.`));
+}
+
+// --- sorteo tabs ---
+const tabsEl = document.getElementById('sorteo-tabs');
+SORTEOS.forEach(s => {
+  const tab = document.createElement('button');
+  tab.className = 'sorteo-tab' + (s.id === current.id ? ' active' : '');
+  tab.dataset.id = s.id;
+  tab.innerHTML = `<span class="st-name">${s.name}</span><span class="st-meta">${s.metaLabel}</span>`;
+  tab.addEventListener('click', () => {
+    if (current.id === s.id) return;
+    current = s;
+    document.querySelectorAll('.sorteo-tab').forEach(t => t.classList.toggle('active', t.dataset.id === s.id));
+    document.getElementById('qty-input').max = Math.min(100, s.total);
+    loadCurrent();
+  });
+  tabsEl.appendChild(tab);
+});
+
+document.getElementById('reload-btn').addEventListener('click', loadCurrent);
+
+// --- hover + tooltip ---
+let lastHover = null;
+function setHoverCell(col, row, on) {
+  if (col < 0 || row < 0 || col >= COLS || row >= PER_COL) return;
+  drawCell(col, row, on);
+}
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const col = Math.floor(x / STEP), row = Math.floor(y / STEP);
+  const num = col * PER_COL + row;
+  if (col < 0 || col >= COLS || row < 0 || row >= PER_COL || num >= TOTAL) {
+    tooltip.classList.remove('show');
+    if (lastHover) { setHoverCell(lastHover.col, lastHover.row, false); lastHover = null; }
+    return;
+  }
+  if (lastHover && (lastHover.col !== col || lastHover.row !== row)) setHoverCell(lastHover.col, lastHover.row, false);
+  setHoverCell(col, row, true);
+  lastHover = { col, row };
+  const f = freqOf(num);
+  const freqText = f === 0 ? 'Nunca ha salido' : f === 1 ? 'Salió 1 vez' : `Salió ${f} veces · repetido`;
+  tooltip.innerHTML = `<span class="n">${pad(num)}</span><span class="f">${freqText}</span>`;
+  tooltip.style.left = (e.clientX + 16) + 'px';
+  tooltip.style.top = (e.clientY + 16) + 'px';
+  tooltip.classList.add('show');
+});
+canvas.addEventListener('mouseleave', () => {
+  tooltip.classList.remove('show');
+  if (lastHover) { setHoverCell(lastHover.col, lastHover.row, false); lastHover = null; }
+});
+
+// --- search ---
+const input = document.getElementById('search-input');
+const resultEl = document.getElementById('search-result');
+function doSearch() {
+  const raw = input.value.trim();
+  if (raw === '') return;
+  const num = parseInt(raw, 10);
+  if (isNaN(num) || num < 0 || num >= TOTAL) {
+    resultEl.textContent = `Ingresa un número entre ${pad(0)} y ${pad(TOTAL - 1)}.`;
+    resultEl.className = 'miss'; return;
+  }
+  const col = Math.floor(num / PER_COL), row = num % PER_COL;
+  const f = freqOf(num), label = pad(num);
+  if (f === 0) { resultEl.textContent = `${label} — nunca ha salido en este historial.`; resultEl.className = 'miss'; }
+  else { resultEl.textContent = `${label} — salió ${f} ${f === 1 ? 'vez' : 'veces'}.`; resultEl.className = 'hit'; }
+
+  const targetX = col * STEP - scrollEl.clientWidth / 2 + STEP;
+  scrollEl.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
+  const cellLeft = canvas.offsetLeft + col * STEP;
+  const cellTop = canvas.offsetTop + row * STEP;
+  highlightBox.style.left = (cellLeft - 3) + 'px';
+  highlightBox.style.top = (cellTop - 3) + 'px';
+  highlightBox.style.width = (SIZE + 6) + 'px';
+  highlightBox.style.height = (SIZE + 6) + 'px';
+  highlightBox.classList.remove('show');
+  void highlightBox.offsetWidth;
+  highlightBox.classList.add('show');
+  highlightBox.style.opacity = '1';
+}
+document.getElementById('search-btn').addEventListener('click', doSearch);
+input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+// --- suggestions: pick random "cold" numbers (frequency 0) ---
+const genBtn = document.getElementById('gen-btn');
+const qtyInput = document.getElementById('qty-input');
+const suggestResults = document.getElementById('suggest-results');
+
+genBtn.addEventListener('click', () => {
+  let qty = parseInt(qtyInput.value, 10);
+  if (isNaN(qty) || qty < 1) qty = 1;
+
+  // cold = never appeared. (Numbers with freq>=2 are already excluded by "never appeared".)
+  const coldCount = TOTAL - Object.keys(FREQ).length;
+  if (coldCount <= 0) {
+    suggestResults.innerHTML = '<span class="suggest-empty">No quedan números fríos: todos los del rango ya han salido al menos una vez.</span>';
+    return;
+  }
+  if (qty > coldCount) qty = coldCount;
+
+  // Reservoir-style random sampling without building the full 0..TOTAL array.
+  const chosen = new Set();
+  let guard = 0;
+  const maxTries = qty * 60 + 2000;
+  while (chosen.size < qty && guard < maxTries) {
+    const candidate = Math.floor(Math.random() * TOTAL);
+    if (!FREQ[candidate]) chosen.add(candidate); // freq 0 => cold
+    guard++;
+  }
+  // Fallback: if random tries fell short (range nearly exhausted), scan deterministically.
+  if (chosen.size < qty) {
+    for (let n = 0; n < TOTAL && chosen.size < qty; n++) {
+      if (!FREQ[n]) chosen.add(n);
+    }
+  }
+
+  const sorted = Array.from(chosen).sort((a, b) => a - b);
+  suggestResults.innerHTML = '';
+  sorted.forEach((n, i) => {
+    const el = document.createElement('span');
+    el.className = 'suggest-num';
+    el.style.animationDelay = (i * 0.04) + 's';
+    el.textContent = pad(n);
+    suggestResults.appendChild(el);
+  });
+});
+
+// initial load
+loadCurrent();
+</script>
+
+</body>
+</html>
