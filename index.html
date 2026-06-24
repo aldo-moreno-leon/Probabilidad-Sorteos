@@ -174,8 +174,10 @@
   .legend-item { display: flex; align-items: center; gap: 6px; }
   .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
   .swatch.empty { background: var(--empty); border: 1px solid var(--border); }
-  .swatch.one { background: var(--green); }
-  .swatch.two { background: var(--gold); box-shadow: 0 0 6px rgba(240,200,120,0.5); }
+  .scale-ramp {
+    display: inline-flex; gap: 2px; align-items: center; vertical-align: middle; margin: 0 3px;
+  }
+  .scale-ramp i { width: 9px; height: 11px; border-radius: 2px; display: inline-block; }
 
   .search-box {
     display: flex; align-items: center; gap: 8px; background: var(--surface-2);
@@ -253,8 +255,8 @@
 <div class="wrap">
 
   <p class="eyebrow">Probabilidad de sorteos — Lotería Nacional</p>
-  <h1>Historial de sorteos</em></h1>
-  <p class="lede">Cada celda es un número ganador. El color marca si ya fue número ganador en algún sorteo histórico y cuántas veces. Elige el tipo de sorteo para cargar su historial.</p>
+  <h1>Un mapa de <em>todo lo que ya salió.</em></h1>
+  <p class="lede">Cada celda es un número de billete. El color marca si ya fue número ganador en algún sorteo histórico y cuántas veces. Elige el tipo de sorteo para cargar su historial.</p>
 
   <div class="sorteo-tabs" id="sorteo-tabs"></div>
 
@@ -280,7 +282,7 @@
     <div class="suggest-controls">
       <div class="qty-control">
         <label for="qty-input">¿Cuántos números?</label>
-        <input type="number" id="qty-input" min="1" max="500" value="1">
+        <input type="number" id="qty-input" min="1" max="100" value="1">
       </div>
       <button class="gen-btn" id="gen-btn">Generar sugerencia</button>
     </div>
@@ -295,9 +297,13 @@
       <h3 class="panel-title">Mapa de números <span id="panel-subtitle">cargando…</span></h3>
       <div class="controls">
         <div class="legend">
-          <div class="legend-item"><span class="swatch empty"></span> nunca ha salido</div>
-          <div class="legend-item"><span class="swatch one"></span> salió 1 vez</div>
-          <div class="legend-item"><span class="swatch two"></span> repetido</div>
+          <div class="legend-item"><span class="swatch empty"></span> nunca</div>
+          <div class="legend-item">
+            <span>1</span>
+            <span class="scale-ramp" id="scale-ramp"></span>
+            <span>5+</span>
+            <span style="color:var(--text-dim);">veces</span>
+          </div>
         </div>
         <div class="search-box">
           <input id="search-input" type="text" placeholder="buscar nº" maxlength="6" inputmode="numeric">
@@ -321,7 +327,7 @@
   </div>
 
   <footer>
-    <strong>Aviso:</strong> este sitio es un registro estadístico, no una herramienta de predicción. En cada sorteo todos los números tienen exactamente la misma probabilidad de salir, sin importar si salieron antes o no (lo contrario es la llamada «falacia del apostador»). Juega con responsabilidad.
+    Las celdas vacías son números que, dentro de cada historial, todavía no han salido ganadores. <strong>Aviso:</strong> este sitio es un registro estadístico, no una herramienta de predicción. En cada sorteo todos los números tienen exactamente la misma probabilidad de salir, sin importar si salieron antes o no (lo contrario es la llamada «falacia del apostador»). Juega con responsabilidad.
   </footer>
 
 </div>
@@ -333,7 +339,24 @@ const PER_COL = 50;
 const SIZE = 11;
 const GAP = 3;
 const STEP = SIZE + GAP;
-const COLORS = { empty:'#1b2920', one:'#3fa66b', oneHover:'#5bcf8a', two:'#d9ad57', twoHover:'#f0c878' };
+const COLORS = { empty:'#1b2920' };
+const MAX_FREQ = 5; // cap the color scale at 5 repetitions
+// Graduated scale: 1 = green, climbing through lime/amber/orange to deep red at 5+.
+// Index 0 is unused (freq 1 maps to FREQ_SCALE[1]).
+const FREQ_SCALE = [
+  null,
+  '#3fa66b', // 1  verde
+  '#a9cf63', // 2  lima
+  '#e8b84f', // 3  ámbar
+  '#e07f3a', // 4  naranja
+  '#cc4030'  // 5+ rojo
+];
+// Hover = slightly brighter version of each step.
+const FREQ_SCALE_HOVER = [
+  null,
+  '#5bcf8a', '#c2e07d', '#f6cf6a', '#f29a55', '#e35a4a'
+];
+function lvl(f) { return Math.min(f, MAX_FREQ); }
 
 // Sorteo definitions
 const SORTEOS = [
@@ -355,7 +378,7 @@ const SORTEOS = [
   },
   {
     id: '4d',
-    name: 'Lotería Nacional 4 dígitos',
+    name: 'Lotería Nacional 4D',
     digits: 4,
     total: 10000,
     metaLabel: '10,000 emisiones · 0000–9999',
@@ -375,6 +398,18 @@ const ticksEl = document.getElementById('col-ticks');
 const gridInner = document.getElementById('grid-inner');
 const tooltip = document.getElementById('tooltip');
 const highlightBox = document.getElementById('highlight-box');
+
+// Build the color-scale legend ramp (1 … 10+) once.
+(function buildScaleRamp() {
+  const ramp = document.getElementById('scale-ramp');
+  if (!ramp) return;
+  for (let f = 1; f <= MAX_FREQ; f++) {
+    const i = document.createElement('i');
+    i.style.background = FREQ_SCALE[f];
+    i.title = f === MAX_FREQ ? `${f} o más veces` : `${f} ${f === 1 ? 'vez' : 'veces'}`;
+    ramp.appendChild(i);
+  }
+})();
 const scrollEl = document.getElementById('grid-scroll');
 const dataStatus = document.getElementById('data-status');
 const dataStatusText = document.getElementById('data-status-text');
@@ -382,9 +417,9 @@ const dataStatusText = document.getElementById('data-status-text');
 function pad(n) { return String(n).padStart(DIGITS, '0'); }
 function freqOf(num) { return FREQ[num] || 0; }
 function colorFor(f, hover) {
-  if (f >= 2) return hover ? COLORS.twoHover : COLORS.two;
-  if (f === 1) return hover ? COLORS.oneHover : COLORS.one;
-  return COLORS.empty;
+  if (f <= 0) return COLORS.empty;
+  const i = lvl(f);
+  return hover ? FREQ_SCALE_HOVER[i] : FREQ_SCALE[i];
 }
 
 function drawCell(col, row, hover) {
@@ -452,10 +487,15 @@ function updateStats(numsCount) {
     chipRow.innerHTML = '<span style="color:var(--text-dim);font-size:13px;">Todavía ningún número se ha repetido en este historial.</span>';
   } else {
     titleEl.textContent = `Números repetidos (${dobles.length})`;
-    dobles.sort((a, b) => Number(a[0]) - Number(b[0]))
+    // Most-repeated first; ties broken by number.
+    dobles.sort((a, b) => (b[1] - a[1]) || (Number(a[0]) - Number(b[0])))
       .forEach(([num, count]) => {
         const chip = document.createElement('span');
         chip.className = 'chip';
+        const c = colorFor(count, false);
+        chip.style.borderColor = c;
+        chip.style.color = c;
+        chip.style.background = 'color-mix(in srgb, ' + c + ' 14%, transparent)';
         chip.textContent = `${pad(Number(num))} ×${count}`;
         chipRow.appendChild(chip);
       });
@@ -572,7 +612,7 @@ canvas.addEventListener('mousemove', (e) => {
   setHoverCell(col, row, true);
   lastHover = { col, row };
   const f = freqOf(num);
-  const freqText = f === 0 ? 'Nunca ha salido' : f === 1 ? 'Salió 1 vez' : `Salió ${f} veces · repetido`;
+  const freqText = f === 0 ? 'Nunca ha salido' : f === 1 ? 'Salió 1 vez' : `Salió ${f} veces`;
   tooltip.innerHTML = `<span class="n">${pad(num)}</span><span class="f">${freqText}</span>`;
   tooltip.style.left = (e.clientX + 16) + 'px';
   tooltip.style.top = (e.clientY + 16) + 'px';
